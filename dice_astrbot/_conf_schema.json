@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "title": "Dice-AstrBot 配置",
+  "properties": {
+    "prefix": {
+      "type": "string",
+      "title": "命令前缀",
+      "description": "例如 . 或 !；留空无效，默认 .。也可在配置文件中使用 prefixes 数组启用多个前缀。",
+      "default": ".",
+      "minLength": 1,
+      "maxLength": 8
+    },
+    "prefixes": {
+      "type": "array",
+      "title": "命令前缀列表",
+      "description": "可选；设置后覆盖单个 prefix，较长前缀优先匹配。",
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 8
+      }
+    },
+    "disable_jrrp": {
+      "type": "boolean",
+      "title": "全局禁用今日人品",
+      "description": "启用后，所有群聊和私聊中的 .jrrp 均不可用。",
+      "default": false
+    },
+    "disable_me": {
+      "type": "boolean",
+      "title": "全局禁用角色扮演动作",
+      "description": "启用后，禁用 .me 角色扮演动作和指定群发送。",
+      "default": false
+    },
+    "legacy_import_owner_id": {
+      "type": "string",
+      "title": "旧档案导入所有者 ID",
+      "description": "可选；仅配置的数字用户 ID 可在私聊中预览/导入角色卡或昵称；启用时还必须配置 legacy_import_owner_scope。",
+      "default": "",
+      "maxLength": 20,
+      "pattern": "^$|^[0-9]{1,20}$"
+    },
+    "legacy_import_owner_scope": {
+      "type": "string",
+      "title": "旧档案导入所有者平台/bot范围",
+      "description": "可先留空以启动插件并查询范围；留空时仅 .legacy scope 可用，所有预览/导入会被禁用；填入所有者 .legacy scope 返回的 JSON 数组后才启用导入。",
+      "default": "",
+      "maxLength": 512
+    },
+    "default_coc_rule": {
+      "type": "integer",
+      "title": "默认 COC 房规",
+      "description": "群内未单独设置房规时使用；0–7 对应上游 COC 检定规则，默认 0（规则书）。",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 7
+    },
+    "default_die": {
+      "type": "integer",
+      "title": "默认骰面数",
+      "description": "裸骰 D 使用的面数。",
+      "default": 100,
+      "minimum": 1,
+      "maximum": 100000
+    },
+    "max_message_length": {
+      "type": "integer",
+      "title": "最大命令长度",
+      "default": 500,
+      "minimum": 32,
+      "maximum": 4000
+    },
+    "max_response_length": {
+      "type": "integer",
+      "title": "最大回复长度",
+      "default": 4000,
+      "minimum": 256,
+      "maximum": 8000
+    }
+  },
+  "additionalProperties": false
+}

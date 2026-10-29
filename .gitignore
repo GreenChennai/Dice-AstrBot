@@ -1,0 +1,15 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local virtual environments and credentials
+.venv/
+venv/
+.env
+.env.*
+
+# Local runtime state and imported legacy archives
+/data/plugin_data/
+/imports/
+*.log

@@ -1,12 +1,79 @@
-# Dice-AstrBot
+<p align="center">
+  <img src="assets/readme/hero.svg" alt="Dice-AstrBot：骰子、COC7 与团务，直接在 AstrBot 消息事件里运行" width="100%">
+</p>
 
-Dice 的原生 AstrBot Python 插件实现：在 AstrBot 消息事件中直接处理骰子、COC 与团务状态，不启动 Dice 服务、不走 HTTP/QQ 代理。目标运行环境为 AstrBot 4.29.1 / Python 3.12；仅依赖 AstrBot API 与 Python 标准库。
+<p align="center">
+  <img alt="AstrBot 4.29.1" src="https://img.shields.io/badge/AstrBot-4.29.1-FF4D5E?style=flat-square">
+  <img alt="Python 3.12" src="https://img.shields.io/badge/Python-3.12-37D6C0?style=flat-square">
+  <img alt="插件版本 0.2.0" src="https://img.shields.io/badge/version-0.2.0-F5C451?style=flat-square">
+  <img alt="仅标准库" src="https://img.shields.io/badge/deps-stdlib%20only-6E8399?style=flat-square">
+</p>
 
-## 安装
+**Dice 的原生 AstrBot 实现。** 骰子、COC7 检定、角色卡与团务状态，全部在 AstrBot 的消息事件里直接处理：不启动 Dice 服务，不走 HTTP / QQ 代理，只依赖 AstrBot API 与 Python 标准库。目标运行环境为 AstrBot 4.29.1 / Python 3.12。
+
+<p align="center">
+  <img src="assets/readme/section-quickstart.svg" alt="快速开始" width="100%">
+</p>
+
+## 三分钟上手
+
+1. 把仓库里的 `dice_astrbot/` 目录复制到 AstrBot 的 `data/plugins/dice_astrbot`（也可以在 WebUI 插件页直接上传打包好的 zip）。
+2. 在 WebUI 里重载该插件，或重启 AstrBot。
+3. 在群里发一条 `.r 3d6`。
+
+```text
+> .r 3d6 伤害
+3d6: 4 + 2 + 6 = 12
+
+> .ra 侦查
+侦查 D100 = 27 / 45  成功
+```
+
+插件数据保存在 `data/plugin_data/dice_astrbot/dice_state.json`。**首次使用前请备份旧状态文件**：插件不会自动扫描或导入旧数据，迁移只支持下文由所有者显式触发的白名单实验性子集。
+
+> **兼容性**：入群欢迎语与退群/被踢提示依赖 OneBot V11（aiocqhttp）原始 notice 事件。AstrBot 4.29.1 的公共插件 API 没有跨适配器成员生命周期事件，其他适配器不支持这两项（命令本身仍可用）。
+
+<p align="center">
+  <img src="assets/readme/section-commands.svg" alt="命令一览" width="100%">
+</p>
+
+## 能力与代表命令
+
+所有命令默认以 `.` 为前缀，可在配置里替换。下表是入口；每个命令的完整语义、边界与安全限制见下方折叠的完整说明。
+
+| 能力 | 代表命令 | 一句话说明 |
+| --- | --- | --- |
+| 骰子 | `.r` `.roll` `.rs` `.rh` | NdS 表达式、默认骰、K 取高、Fudge、B/P 奖励惩罚骰、表达式别名 |
+| COC 检定 | `.ra` `.rc` `.sc` `.ti` `.li` `.en` | 0–7 房规、难度与倍率语法、1–10 次批量、具名角色卡检定 |
+| 骰池 | `.w` `.ww` | D10 成功数池，目标默认 8，支持正/负池 |
+| 角色卡 | `.coc7d` `.pc …` `.st …` | 生成/复制/重命名/导出，库存 32 张，活动卡按会话记录 |
+| 团务 | `.game …` `.ob` `.ri` `.init` `.log` | 多存档、主持人/玩家/旁观者、跨聊天挂接、先攻与团务日志 |
+| 牌堆 | `.draw` `.deck …` | 67 个上游公共牌堆 / 4,952 项，支持有界模板与静态权重 |
+| 自定义回复 | `.reply …` | 精确/前缀/包含/安全正则子集、加权牌堆、概率与限额 |
+| 群管理 | `.group …` `.ban` `.link` `.welcome` `.bot` | 群开关、盲骰、跨群文本链接、入群欢迎语 |
+| 辅助 | `.jrrp` `.name` `.nnn` `.me` `.helpdoc` | 每日人品、随机姓名与昵称、角色扮演动作、自定义帮助页 |
+
+## 为什么是"原生"而不是代理
+
+- **没有中间件**：直接在 AstrBot 消息事件内完成解析与回复，不额外起进程、不建 HTTP 通道、不依赖 QQ 协议实现。
+- **有界执行**：正则走自研 NFA 子集（不全用回溯引擎），牌堆模板与骰式别名通过有界解释器展开，表达式长度、骰数、递归深度都有硬上限。
+- **数据本地**：状态只写插件自己的 JSON，不联网、不上传。
+- **拒绝而非假装**：依赖 Dice 服务、C++ 模组宿主、驱动群管理接口的上游命令被显式拒绝，不会静默降级成别的行为。
+
+<p align="center">
+  <img src="assets/readme/section-limits.svg" alt="边界与差异" width="100%">
+</p>
+
+这不是完整的 C++ Dice 发行版。下面折叠的五份内容是完整参考：安装与配置、完整命令说明、团务日志与旧卡库迁移、与上游 Dice 的差异清单（逐条列出未移植项），以及开发与验证记录（含只做过临时 listener 冒烟、尚未跑过真实连接器 E2E 的部分）。
+
+<details>
+<summary>安装与配置（详解）</summary>
+
+### 安装
 
 将本仓库的 `dice_astrbot` 目录完整复制到 AstrBot 的 `data/plugins/dice_astrbot`，在 WebUI 重载或重启 AstrBot。插件数据自动保存在 `data/plugin_data/dice_astrbot/dice_state.json`。首次使用前备份旧状态文件；插件不会自动扫描/导入旧数据，仅支持下文所述由所有者显式触发的固定版 PlayerCards、UserConf 和 ChatConf 白名单实验性迁移；其他 C++ 二进制存档、未列出的 `.dat` 及 XML 格式仍未支持。
 
-## 配置
+### 配置
 
 AstrBot 插件配置项：
 
@@ -18,7 +85,12 @@ AstrBot 插件配置项：
 - `disable_jrrp`：全局禁用今日人品，默认 `false`；禁用后 `.jrrp` 在群聊与私聊均不可用。
 - `disable_me`：全局禁用 `.me` 角色扮演动作及私聊指定群发送，默认 `false`。
 
-## 已实现命令
+</details>
+
+<details>
+<summary>完整命令说明</summary>
+
+### 已实现命令
 
 所有命令默认以 `.` 为前缀；配置后替换为自己的前缀。
 
@@ -31,29 +103,44 @@ AstrBot 插件配置项：
 - 跨群文本链接：`.link with/to/from 群号` 建立双向/单向链接，`.link state/list/start/close` 查询、恢复、暂停；群链接状态按 platform_id 与 bot self_id 隔离，发送按 UMO 的 platform_id 路由；AstrBot 4.29.1 UMO 格式为 platform_name:message_type:session_id，不含 self_id，若单个 adapter 实例复用多个 bot 账号则无法保证具体账号，因此建议一个 bot 一个 platform instance，链接状态保存在本地。链接会立即转发群内文本及本插件的可见命令回复（隐藏掷骰的输入不转发）；不转发图片等附件或其他插件的输出。启用前须确认目标群知情同意；目标群身份/同意不会被自动验证，适配器接受发送不代表最终送达。
 - 自定义帮助页：`.helpdoc key` 查询，`.helpdoc key 正文` 设置，`.helpdoc key reset` 删除。仅 AstrBot 平台全局管理员可在私聊管理；按 platform/bot 范围隔离，不执行上游 formatter/脚本指令；每范围最多 100 页、每页≤2000 字、总正文≤32000 字，损坏数据拒绝写入。AstrBot 4.29.1 `Main(Star)` 临时 listener 冒烟标记：`REAL_ASTRBOT_HELPDOC_LISTENER_OK`、`REAL_ASTRBOT_HELPDOC_DATA_GUARDS_OK`。源/目标群管理员均可从各自群暂停链接。
 
-## 团务日志（本地子集）
+</details>
+
+<details>
+<summary>团务日志与旧卡库迁移</summary>
+
+### 团务日志（本地子集）
 
 支持 `.log new [名称]`、`on [名称]`、`off`、`end`、`status`、`show [1–12]`、`show archive [1–6]`、`archives`；不带子命令的 `.log` 仍是原有的最近骰子/检定记录视图；`.game status` 展示当前有效数值房规与已设置的团务规则名、主持人/玩家/旁观者名册（每类最多显示 10 项并优先使用本会话昵称）、通过结构校验的轮盘骰面和活跃日志名；名单字段和名称均有输出上限。日志只记录当前团务的主持人/参与者消息和插件可见回复；每份最多 200 条、每条最多 500 字，保留裁剪计数。`.game over` 仍会删除团务桌状态，但会额外保存最近 3 份日志快照；原团务主持人或群管理员可读，损坏的日志归档会阻止删除以免丢数据。控制/查看权限比上游命令分支更严格，限定为当前团务主持人或群管理员。隐藏检定的入站命令可能会记录，但私信中的结果不保存，群内只保存公开提示；如不希望记录隐藏检定输入，请不要在该聊天开启团务日志。数据写入插件 JSON，`.log end` 不会上传文件，也不运行上游 LogEnd/uplog 钩子；日志生命周期与文件名/路径行为并非完全上游兼容。实际 AstrBot 4.29.1 Main(Star) 临时数据 listener 冒烟标记为 `REAL_ASTRBOT_SESSION_LOG_OVER_OK`，覆盖参与者记录、隐藏结果隐私、暂停/恢复、`.game over` 归档、原主持人/群管理员权限、未授权拒绝和损坏归档 fail-closed；事件为 duck-typed，未测真实适配器。
 
-## 旧卡库迁移（实验性）
+### 旧卡库迁移（实验性）
 
 支持固定版 Dice x64 的 `PlayerCards.RDconf`、`PlayerCards.RDconf.bak` 与 `PlayerCards.bak`；使用 `.legacy preview [rdconf|rdconf.bak|bak]` 选择来源，不带格式时默认为 `rdconf`；暂存位置为插件数据目录下的 `imports/`。先将原始数字用户 ID 填入 `legacy_import_owner_id`，保存并加载插件；由该用户在私聊执行 `.legacy scope`，将返回的 JSON 范围填入 `legacy_import_owner_scope`。范围留空时预览/导入会在读取文件前拒绝；填入后仅该用户及精确 platform/bot 身份可执行 `.legacy preview/import`。迁移只新增玩家记录：任一目标用户已存在就整批拒绝，不覆盖本地玩家；单个旧用户最多保留上游历史边界允许的 33 张卡，超限整批拒绝；本地新建仍限制 32 张；原始文件只读不改，属性函数/非数值/内部/公式属性、空名卡记录及指向缺失卡片的群映射会被跳过并计数；Lock/DiceExp/Info/Note 区段不迁移但会在预览和回执中计数；重复卡片 ID 或重复群映射 ID 会拒绝导入。
 
 另支持 `UserConf.dat`、`UserConf.dat.bak`、`UserConf.bak`、`UserConf.RDconf`，分别以 `dat`、`dat.bak`、`bak`、`rdconf` 选择，并要求预览/导入使用同一格式；迁移全局/当前 bot 范围内群昵称、个人默认骰（1–9999）、个人默认规则名（最多 128 字）、上游 `gender` 字段文本（最多 128 字，仅导入本地显式值、不查询平台资料）及个人私聊 COC 房规（0–7；写入对应 platform/bot 私聊组配置）。只读取这些白名单键，不迁移 Dice trust、其他配置、时间戳或内部 ID。预览绑定文件 SHA-256、格式和 platform/bot 身份；存在不同昵称、默认骰、规则名、gender 或私聊房规时整批拒绝，已有角色卡及其他玩家/群字段保留。所有格式均无版本头，目前仅用合成源格式样本验证、没有真实档案验证，属实验性；请先备份源文件和 AstrBot 插件数据。`ChatConf.dat`、`ChatConf.dat.bak`、`ChatConf.bak` 与 `ChatConf.RDconf` 可通过 `.legacy groups-preview dat|dat.bak|bak|rdconf` / `.legacy groups-import 同源格式` 仅迁移六项群开关、`Rh盲骰`（隐藏骰不向发送者重复回显）、`rc房规` 0–7 与 `入群欢迎` 群内纯文本（≤500 字，不执行模板且不触发入群通知）；仅当前配置所有者私聊可用，绑定 SHA-256 与 platform/bot 身份，只有缺省或相同值可合并，冲突整批拒绝；群开关遵循上游 AttrVar 真值：布尔 false/null 不视为已设置，整数 0 等其他非 null 值视为已设置。群名、按频道 ID 索引的 Chat::ChConf、信任、卡组、日志及其他字段不迁移；ChatConf 同样仅用合成样本验证，真实档案未验证。旧 XML、上述 ChatConf 文件名以外的备份及其他版本仍不支持。
 
-## 与上游的差异（当前明确未移植）
+</details>
+
+<details>
+<summary>与上游 Dice 的差异（完整清单）</summary>
+
+### 与上游的差异（当前明确未移植）
 
 这不是完整的 C++ Dice 发行版；以下部分依赖 QQ 驱动、服务器、原生存档格式或上游脚本生态，当前没有实现：
 
-- QQAPI 生命周期与驱动/连接器管理命令（`.groups list/clr`、`.authorize`、`.dismiss`、`.4kick`、`.chan`）在插件中均被识别并显式拒绝、不代理，分别依赖驱动群缓存/清理策略、群许可证/GroupAuthorize 或退群/踢人/频道 API；`.welcome show/set/clr` 和直接 `.welcome <文本>` 仅由群管理员管理当前群纯文本欢迎语（最长 500 字），不执行模板，也不自动触发入群通知；`.group state` 仅显示六项本地配置；`.group info` 仅只读显示当前消息事件携带的群/频道名、ID及成员数；字段可能缺失，不调用远端接口且不支持查询其他群；`.group tojson` 仅群管理员可导出当前群的安全本地 JSON 子集（六项本地开关、群级规则覆盖和盲骰开关；不含群/成员 ID、会话、角色卡、自定义回复、牌堆或日志，不可指定其他群；不是上游完整 Chat JSON）；`.group survey/diver/diver4kick/pause/restart/ban/kick/title` 因依赖驱动群成员/禁言/踢人/头衔接口或 Dice trust 而显式拒绝，不会操作平台；普通成员可用 `.group card 用户ID 角色卡名` 切换本人卡，群管理员可切换他人卡（只查同平台/bot 下已有用户数据，不创建用户记录；本地仅改活动卡指针、不操作平台；无法验证目标是否为群成员、Dice trust≥4 或骰娘自身是否为群管理员，故不等同上游权限模型）；`.group +选项|-选项` 由群管理员设置同一六项并支持原子多项更新；`.group all` 已实现受限本地子集：仅 AstrBot 平台全局管理员私聊可批量设置“停用指令/禁用回复/禁用jrrp/禁用draw/禁用me/禁用help”；仅遍历本插件存储中已记录的非私聊群（覆盖本插件已保存的 platform/bot 身份），不枚举平台未知群；上游 Dice trust≥5 权限层级、未映射选项（如禁用ob及许可/信任/清理配置）和完整 ChatList 语义未移植；全局 `.master` 认主/信任等级管理（上游依赖启动口令及 trusted>4/现任 master；不等同 `.game master`；本地已注册并显式拒绝，不记录或转发启动口令）、`.user trust/diss/kill/clr` 依赖 Dice 用户注册表、信任等级、黑名单与跨记录清理，未移植；跨用户/管理员 `.user tojson` 不可复刻（本地仅有私聊本人 JSON 导出）；上游 `.authorize` 群许可申请/授予（依赖许可状态与 GroupAuthorize hook；本插件不执行许可门控）；`.admin only/public` 私用/公用模式还依赖信任等级自动授权及未许可群自动退群，AstrBot 无对应群生命周期驱动、驱动退群命令 `.dismiss`、禁言踢人命令 `.4kick`，以及跨连接器/多媒体消息转发及各驱动能力回退。本地 group-all 子集实际 AstrBot 4.29.1 Main(Star) 临时 listener 标记 REAL_ASTRBOT_GROUP_ALL_LISTENER_OK，覆盖全局管理员/群管理员边界、六项开关、私聊排除、未知项拒写与损坏状态事务回滚。
+- QQAPI 生命周期与驱动/连接器管理命令（`.groups list/clr`、`.authorize`、`.dismiss`、`.4kick`、`.chan`）在插件中均被识别并显式拒绝、不代理，分别依赖驱动群缓存/清理策略、群许可证/GroupAuthorize 或退群/踢人/频道 API；`.welcome show/set/clr` 和直接 `.welcome <文本>` 仅由群管理员管理当前群纯文本欢迎语（最长 500 字、不执行模板）；OneBot V11（aiocqhttp）适配器对通过审核/邀请入群自动发送本群欢迎语，并在群内提示成员退群/被踢；其他适配器不支持成员生命周期检测；`.group state` 仅显示六项本地配置；`.group info` 仅只读显示当前消息事件携带的群/频道名、ID及成员数；字段可能缺失，不调用远端接口且不支持查询其他群；`.group tojson` 仅群管理员可导出当前群的安全本地 JSON 子集（六项本地开关、群级规则覆盖和盲骰开关；不含群/成员 ID、会话、角色卡、自定义回复、牌堆或日志，不可指定其他群；不是上游完整 Chat JSON）；`.group survey/diver/diver4kick/pause/restart/ban/kick/title` 因依赖驱动群成员/禁言/踢人/头衔接口或 Dice trust 而显式拒绝，不会操作平台；普通成员可用 `.group card 用户ID 角色卡名` 切换本人卡，群管理员可切换他人卡（只查同平台/bot 下已有用户数据，不创建用户记录；本地仅改活动卡指针、不操作平台；无法验证目标是否为群成员、Dice trust≥4 或骰娘自身是否为群管理员，故不等同上游权限模型）；`.group +选项|-选项` 由群管理员设置同一六项并支持原子多项更新；`.group all` 已实现受限本地子集：仅 AstrBot 平台全局管理员私聊可批量设置“停用指令/禁用回复/禁用jrrp/禁用draw/禁用me/禁用help”；仅遍历本插件存储中已记录的非私聊群（覆盖本插件已保存的 platform/bot 身份），不枚举平台未知群；上游 Dice trust≥5 权限层级、未映射选项（如禁用ob及许可/信任/清理配置）和完整 ChatList 语义未移植；全局 `.master` 认主/信任等级管理（上游依赖启动口令及 trusted>4/现任 master；不等同 `.game master`；本地已注册并显式拒绝，不记录或转发启动口令）、`.user trust/diss/kill/clr` 依赖 Dice 用户注册表、信任等级、黑名单与跨记录清理，未移植；跨用户/管理员 `.user tojson` 不可复刻（本地仅有私聊本人 JSON 导出）；上游 `.authorize` 群许可申请/授予（依赖许可状态与 GroupAuthorize hook；本插件不执行许可门控）；`.admin only/public` 私用/公用模式还依赖信任等级自动授权及未许可群自动退群，AstrBot 无对应群生命周期驱动、驱动退群命令 `.dismiss`、禁言踢人命令 `.4kick`，以及跨连接器/多媒体消息转发及各驱动能力回退。本地 group-all 子集实际 AstrBot 4.29.1 Main(Star) 临时 listener 标记 REAL_ASTRBOT_GROUP_ALL_LISTENER_OK，覆盖全局管理员/群管理员边界、六项开关、私聊排除、未知项拒写与损坏状态事务回滚。
 - Dice Web 管理服务器、远程管理与认证；上游 `.cloud update/black` 依赖 Dice 云服务/授权，本地识别后显式拒绝且不联网；上游任意目标 `.send <目标>` 仍依赖 Dice trust 与目标会话解析，本地拒绝且不发送；另支持受限 `.send notice0+2 <单行文本>` 子集：仅私聊平台全局管理员可按位发送 0–5 级、≤500 字且受配置响应长度上限约束的纯文本至本插件同 platform/bot 范围的匹配订阅者；不等同上游主控/notice 队列，实际送达由适配器决定；完整内容审查（本地仅实现有界 `.admin censor` 字面规则子集；无内置词库、WordCensored hook、普通聊天/自定义回复过滤）、完整插件管理后台；`.admin state/frq/dicelist` 依赖 Dice 主控 trust、连接器资源、滚动频率队列/反垃圾监控及多骰实例注册表，本插件没有等价数据源，明确未移植。
 - 上游 `.mod` 模组安装/更新/重载/删除依赖 C++ 扩展宿主；`.str` 查询/修改/重置全局 Formatter 字符串表依赖 Dice trust 与格式器，本地均明确拒绝且不代理；Lua/JS/Python 脚本生命周期、模组钩子/定时器/自定义命令亦未移植。
-- Dice 上游 .welcome 成员加入通知仍未移植（AstrBot 4.29.1 公共插件 filter 未暴露跨适配器 notice/join 事件）；本地仅存取群管理员配置的纯文本欢迎语、.warning JSON 队列/BlackInfoWarned hook 与全局黑名单校验（依赖上游审核扩展；本地命令明确拒绝且不转发，不伪装为普通文本警告）、Dice ConsoleTimer 的备份/过期清理及扩展定时任务（本插件仅实现 `.system clock` 每日 on/off 子集，使用宿主本地时区）、除受限本地子集外的 `.admin notice` 通知功能（当前仅支持当前会话 level 0–63 订阅及订阅变更/敏感词规则变更(level 1)、插件静默开关(level 3)、clock 成功增删(level 2)通知；另有受限 `.send notice` 子集（私聊平台全局管理员；等级 0–5；单行≤500字且受响应上限约束；仅投同 platform/bot 匹配订阅，实际送达由适配器决定）；上游其他通知事件、任意目标管理与完整消息队列未移植（本地 list 仅群管理员查看当前群、私聊全局管理员查看本插件全部已存范围））、超出前述安全字段子集的 UserConf/ChatConf 完整迁移、旧 XML/其他版本数据迁移、完整 COC XML 模板、用户自定义模板公式/JS 触发器（`.pc type/temp` 仅有 COC7 内置类型与静态字段摘要；COC7 模板的 8 个动态属性、技能默认值及 120 项骰式/武器公式已移植；内置 COC7 `pc` 和 `bg` 预设可用：pc 补齐九项基础属性；bg 按 7D6+8 生成年龄，并按上游缺省值 0 填入八个背景占位字段；build 仅补缺项，redo 重建所选预设，支持 pc:bg 组合；任意自定义模板 JS 不执行；用户自定义安全骰式与 `.r` 别名、`.ti/.li` 症状和细节表已移植）、Dice 的 Rh盲骰配置入口与 canRoomHost 授权语义（本地提供群管理员控制的 `.group blind status|on|off`，实现掷骰者私发抑制结果，但不是上游相同的配置入口）、以及完整 DND/其他规则集（标准技能默认值/别名、1–10 次批量检定与检定难度、倍率、修正、除数语法已移植）。67 个上游公共牌堆已打包：46 个静态牌堆共 4,746 条目，另 21 个内置模板通过有界解释器支持已知牌堆引用、整数权重与骰式；每次展开深度≤16、子抽取≤128、骰式≤64、输出≤4096 字符，不执行用户模板/脚本，无法求值的技能括号按上游保留；活动团务 `.deck` 牌堆随 session 持久化并由 close/open 存档恢复；支持固定整数及方括号安全骰式权重（建牌时求值展开，原始项≤256、骰式≤160字符、结果 1–999、展开≤1024张、累计随机抽取≤100000；不执行模板引用）；团务牌面抽取时也通过有界解释器展开白名单公共牌堆引用及方括号骰式；活动团务 set 支持静态牌堆、白名单内置模板及范围（range 省略终点默认为 0、步长默认为 1），无活动团务时群级 set 仅支持静态牌堆/范围；群成员列表来源仍未移植；`.draw h`/`_` 的隐藏结果仅私信且隐藏输入不写团务日志/链接；公共 `.draw` 从公共牌堆抽取后不消耗；模板子牌堆状态仅在单次抽取/命令内临时共享，不写入会话存档；`.name`/`.nnn` 优先同群自定义 `随机姓名_类型` 牌堆，回退对应内置模板或 `随机姓名`，`.nnn` 设置本会话昵称；上游规则手册查询依赖远程 HTTP POST，本地 `.rule set` 仅保存规则名，`.rule s` 不联网且提示未导入手册。角色卡库存按用户共享，活动卡选择按群记录；PlayerCards.RDconf 系列文件仅提供上一节的实验性白名单导入，其他二进制存档尚未支持。
+- Dice 上游 .welcome 成员加入通知尚未完整移植：本地仅通过 OneBot V11（aiocqhttp）原始 notice 在入群时发送群管理员配置的纯文本欢迎语，并在群内提示成员主动退群/被踢；AstrBot 4.29.1 公共插件 API 未暴露跨适配器成员生命周期事件，其他适配器不支持；.warning JSON 队列/BlackInfoWarned hook 与全局黑名单校验（依赖上游审核扩展；本地命令明确拒绝且不转发，不伪装为普通文本警告）、Dice ConsoleTimer 的备份/过期清理及扩展定时任务（本插件仅实现 `.system clock` 每日 on/off 子集，使用宿主本地时区）、除受限本地子集外的 `.admin notice` 通知功能（当前仅支持当前会话 level 0–63 订阅及订阅变更/敏感词规则变更(level 1)、插件静默开关(level 3)、clock 成功增删(level 2)通知；另有受限 `.send notice` 子集（私聊平台全局管理员；等级 0–5；单行≤500字且受响应上限约束；仅投同 platform/bot 匹配订阅，实际送达由适配器决定）；上游其他通知事件、任意目标管理与完整消息队列未移植（本地 list 仅群管理员查看当前群、私聊全局管理员查看本插件全部已存范围））、超出前述安全字段子集的 UserConf/ChatConf 完整迁移、旧 XML/其他版本数据迁移、完整 COC XML 模板、用户自定义模板公式/JS 触发器（`.pc type/temp` 仅有 COC7 内置类型与静态字段摘要；COC7 模板的 8 个动态属性、技能默认值及 120 项骰式/武器公式已移植；内置 COC7 `pc` 和 `bg` 预设可用：pc 补齐九项基础属性；bg 按 7D6+8 生成年龄，并按上游缺省值 0 填入八个背景占位字段；build 仅补缺项，redo 重建所选预设，支持 pc:bg 组合；任意自定义模板 JS 不执行；用户自定义安全骰式与 `.r` 别名、`.ti/.li` 症状和细节表已移植）、Dice 的 Rh盲骰配置入口与 canRoomHost 授权语义（本地提供群管理员控制的 `.group blind status|on|off`，实现掷骰者私发抑制结果，但不是上游相同的配置入口）、以及完整 DND/其他规则集（标准技能默认值/别名、1–10 次批量检定与检定难度、倍率、修正、除数语法已移植）。67 个上游公共牌堆已打包：46 个静态牌堆共 4,746 条目，另 21 个内置模板通过有界解释器支持已知牌堆引用、整数权重与骰式；每次展开深度≤16、子抽取≤128、骰式≤64、输出≤4096 字符，不执行用户模板/脚本，无法求值的技能括号按上游保留；活动团务 `.deck` 牌堆随 session 持久化并由 close/open 存档恢复；支持固定整数及方括号安全骰式权重（建牌时求值展开，原始项≤256、骰式≤160字符、结果 1–999、展开≤1024张、累计随机抽取≤100000；不执行模板引用）；团务牌面抽取时也通过有界解释器展开白名单公共牌堆引用及方括号骰式；活动团务 set 支持静态牌堆、白名单内置模板及范围（range 省略终点默认为 0、步长默认为 1），无活动团务时群级 set 仅支持静态牌堆/范围；群成员列表来源仍未移植；`.draw h`/`_` 的隐藏结果仅私信且隐藏输入不写团务日志/链接；公共 `.draw` 从公共牌堆抽取后不消耗；模板子牌堆状态仅在单次抽取/命令内临时共享，不写入会话存档；`.name`/`.nnn` 优先同群自定义 `随机姓名_类型` 牌堆，回退对应内置模板或 `随机姓名`，`.nnn` 设置本会话昵称；上游规则手册查询依赖远程 HTTP POST，本地 `.rule set` 仅保存规则名，`.rule s` 不联网且提示未导入手册。角色卡库存按用户共享，活动卡选择按群记录；PlayerCards.RDconf 系列文件仅提供上一节的实验性白名单导入，其他二进制存档尚未支持。
 - `.game master/set/call/kick/rou` 与 `.ob` 已实现本地核心流程，但 AstrBot 事件 API 未提供上游 `canRoomHost` 的 trusted 等级、邀请者等信息，权限判断因此采用可验证的群管理员/主持人/私聊边界；`.game call` 使用 AstrBot 原生 @ 组件并从平台 scoped 身份还原用户 ID。上游命令别名、复杂房间策略、频道事件与队列语义仍未完整移植；本地支持同一 platform/bot 范围内由主持人或私聊参与者按权限跨群/私聊挂接，其他 bot/platform 严格隔离。`.me` 私聊指定群发送由当前 AstrBot 平台实例/bot 限定；上游 trusted 等级、邀请者权限与跨驱动发送能力未移植，发送是否可达仍由适配器决定。本地还支持上游 `.reply set` 的受限兼容子集：Tab 字段、Type:Reply、Title 可独立命名；Match/Prefix/Search 可使用 | 定义多个别名，并可同时配置多模式；Regex 每字段一个；Text/静态 Deck；同一 Title 的别名共享限制且可按标题/别名查询、更新和删除；Regex 仅执行有界 NFA 子集（pattern≤128 字、输入≤400 字、≤256 状态、≤100,000 步/规则、每会话≤20 条），不使用 Python 回溯引擎；lookaround、反向引用、词边界等语法不支持；Lua/JS/Python 脚本及 Order/Both/Game 等非 Reply 类型均拒绝。自定义回复另支持精确/前缀/包含文本匹配、静态 literal Deck（标签::整数权重::文本）及 .reply limit 的概率/用户 ID/群 ID 条件（ID 按 AstrBot 原始事件值精确比较；未命中时继续检查次级规则）；Deck 为 2–32 项、权重 1–1000/项且总权重≤10000，文本≤500 字/项、总长≤4096 字；支持 chat/@user/@global 范围 cd/today 限额及每类 ≤400 字纯文本 &@echo 提示（不展开变量）；限额拦截后继续检查后续匹配并最多发送 3 条不同提示，再附后续命中回复；仅支持本插件进程内 chat/user/global 互斥锁（最多 4 把，不跨进程且无锁提示）；DiceMaid、复杂变量/格式指令（仅 Text 的 `{uid}`/`{gid}`/`{nick}`/`{fromUser}`/`{fromQQ}`/`{fromGroup}`/`{fromMsg}`/`{gender}`/`{pc}` 作有界替换（最多 100 处）；未知引用与带冒号指令保留原文；Prefix 另支持 `{suffix}`（匹配前缀后的原消息，最多 500 字）；Regex 仅支持有界 NFA 与 full-match 替换（含 `$1–$99` 捕获组引用））、完整 ECMAScript/std::wregex（本地仅有界 NFA 子集）、骰式权重表达式与 Lua/JS/Python 回调仍未移植且不执行；本地 JSON 只保存本插件生成的数据。
 
 这些差异不得视为已由代理或上游二进制补齐。
 
-## 开发验证
+</details>
+
+<details>
+<summary>开发与验证记录</summary>
+
+### 开发验证
 
 在仓库根目录运行：
 
@@ -73,3 +160,9 @@ python -m compileall -q dice_astrbot
 另以真实 AstrBot 4.29.1 Main(Star) listener、临时数据及确定性检查验证 `.pc stat` 的默认模板骰不误计、显式单骰/批量统计资格、COC 检定与 SAN/成长统计、B/P 排除、显式卡选择、损坏统计不覆盖及统计写入故障不吞掉已完成的 `.r` 结果，标记 `REAL_ASTRBOT_CARD_STATISTICS_OK`；事件为 duck-typed，未测实际连接器或完整 PluginManager 启动。另以真实 AstrBot Main(Star) 临时 listener 验证 `.pc type/temp` COC7 查询/切换与静态字段摘要、拒绝其他类型/不支持模板、重复 `__Type` 键 fail-closed 且不覆盖，标记 `REAL_ASTRBOT_PC_TYPE_TEMP_OK`；另以真实 AstrBot Main(Star) 临时 listener 验证 `.master` 被注册后显式拒绝、启动口令不进入团务日志/跨群链接/自定义回复，状态不变，标记 `REAL_ASTRBOT_MASTER_SECRET_FAIL_CLOSED_OK`；另以真实 AstrBot 4.29.1 `Main(Star)` listener 与临时数据验证 `.pc tojson` 活动卡/大小写不敏感具名卡 JSON、私聊活动卡、缺失/损坏/超限拒绝、玩家数据不变，以及活动团务日志和跨群 relay 均不包含导出内容，标记 `REAL_ASTRBOT_PC_TOJSON_PRIVACY_OK`；未测真实连接器或完整 PluginManager 启动。
 
 卡片 JSON 兼容：按上游 `AnysTable::to_json()`，对象中的 null/false 字段省略；数组中的 null/false 元素输出为 null。导出仍受节点、深度和字符预算约束。 实际 AstrBot listener 验证标记 `REAL_ASTRBOT_PC_TOJSON_UPSTREAM_VALUE_PARITY_OK`，并以 5000 项容器验证节点预算在扩展子节点前拒绝，标记 `REAL_ASTRBOT_PC_TOJSON_NODE_BUDGET_OK`。
+
+</details>
+
+## 许可证
+
+仓库目前未声明开源许可证，如需使用请先联系作者。

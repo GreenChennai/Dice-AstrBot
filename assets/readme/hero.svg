@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" width="100%" role="img" aria-labelledby="t d">
+  <title id="t">Dice-AstrBot：在 AstrBot 内原生运行骰子、COC7 与团务</title>
+  <desc id="d">左侧标题与三枚特性标签，右侧是群聊命令示例面板：.r 3d6、.ra 侦查、.sc 0/1d6 的实际输出样式，背景有二十面骰线稿。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B1117"/>
+      <stop offset="0.55" stop-color="#0C141B"/>
+      <stop offset="1" stop-color="#0A0E13"/>
+    </linearGradient>
+    <linearGradient id="accentline" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FF4D5E"/>
+      <stop offset="1" stop-color="#FF4D5E" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.18" cy="0.15" r="0.75">
+      <stop offset="0" stop-color="#FF4D5E" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#FF4D5E" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="1.6" cy="1.6" r="1.1" fill="#22303D"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="520" fill="url(#bg)"/>
+  <rect width="1200" height="520" fill="url(#dots)" opacity="0.55"/>
+  <rect width="1200" height="520" fill="url(#glow)"/>
+
+  <!-- D100 percentile rail: COC check thresholds -->
+  <g stroke="#233443" stroke-width="1.6">
+    <line x1="72" y1="474" x2="1128" y2="474"/>
+  </g>
+  <g font-family="ui-monospace, Consolas, monospace" font-size="15" fill="#4E6274">
+    <line x1="72" y1="466" x2="72" y2="482" stroke="#3A5163" stroke-width="1.6"/>
+    <text x="72" y="504">01</text>
+    <line x1="225" y1="468" x2="225" y2="480" stroke="#2C4152" stroke-width="1.4"/>
+    <text x="225" y="504">05</text>
+    <line x1="442" y1="468" x2="442" y2="480" stroke="#2C4152" stroke-width="1.4"/>
+    <text x="442" y="504">25</text>
+    <line x1="637" y1="466" x2="637" y2="482" stroke="#3A5163" stroke-width="1.6"/>
+    <text x="637" y="504" fill="#7E93A8">50</text>
+    <line x1="833" y1="468" x2="833" y2="480" stroke="#2C4152" stroke-width="1.4"/>
+    <text x="833" y="504">75</text>
+    <line x1="1049" y1="468" x2="1049" y2="480" stroke="#2C4152" stroke-width="1.4"/>
+    <text x="1049" y="504">95</text>
+    <line x1="1128" y1="466" x2="1128" y2="482" stroke="#3A5163" stroke-width="1.6"/>
+    <text x="1128" y="504" text-anchor="end">100</text>
+    <text x="72" y="504" opacity="0">.</text>
+  </g>
+
+  <!-- header -->
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="17" letter-spacing="3" fill="#6E8399">
+    <text x="72" y="84">ASTRBOT 4.29.1 / PYTHON 3.12</text>
+  </g>
+  <rect x="72" y="98" width="120" height="3" rx="1.5" fill="url(#accentline)"/>
+
+  <!-- title -->
+  <text x="70" y="196" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="86" font-weight="700" fill="#EEF3F8" letter-spacing="-1">Dice-AstrBot</text>
+  <text x="72" y="246" font-family="Segoe UI, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="25" fill="#A9BDCE">骰子 · COC7 · 团务，直接在消息事件里运行</text>
+
+  <!-- chips -->
+  <g font-family="Segoe UI, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="19">
+    <rect x="72" y="288" width="196" height="44" rx="22" fill="#121C25" stroke="#243544" stroke-width="1.4"/>
+    <circle cx="98" cy="310" r="5" fill="#FF4D5E"/>
+    <text x="116" y="317" fill="#CBD9E5">无服务 · 无代理</text>
+
+    <rect x="284" y="288" width="168" height="44" rx="22" fill="#121C25" stroke="#243544" stroke-width="1.4"/>
+    <circle cx="310" cy="310" r="5" fill="#37D6C0"/>
+    <text x="328" y="317" fill="#CBD9E5">本地 JSON</text>
+
+    <rect x="468" y="288" width="196" height="44" rx="22" fill="#121C25" stroke="#243544" stroke-width="1.4"/>
+    <circle cx="494" cy="310" r="5" fill="#F5C451"/>
+    <text x="512" y="317" fill="#CBD9E5">有界执行</text>
+  </g>
+
+  <text x="72" y="386" font-family="Segoe UI, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="20" fill="#7E93A8">不经 Dice 服务，不走 HTTP / QQ 代理</text>
+  <text x="72" y="420" font-family="Segoe UI, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="20" fill="#7E93A8">仅依赖 AstrBot API 与 Python 标准库</text>
+
+  <!-- chat panel -->
+  <g>
+    <rect x="700" y="96" width="452" height="356" rx="18" fill="#0E1720" stroke="#22303D" stroke-width="1.6"/>
+    <rect x="700" y="96" width="452" height="44" rx="18" fill="#14202B"/>
+    <rect x="700" y="122" width="452" height="18" fill="#14202B"/>
+    <circle cx="726" cy="118" r="5.5" fill="#FF4D5E" opacity="0.8"/>
+    <circle cx="745" cy="118" r="5.5" fill="#F5C451" opacity="0.7"/>
+    <circle cx="764" cy="118" r="5.5" fill="#37D6C0" opacity="0.7"/>
+    <text x="796" y="124" font-family="ui-monospace, Consolas, monospace" font-size="16" fill="#6E8399">AstrBot 群聊</text>
+
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">
+      <text x="728" y="186" fill="#7E93A8">&gt; .r 3d6 伤害</text>
+      <text x="728" y="214" fill="#EEF3F8">3d6: 4 + 2 + 6 = <tspan fill="#37D6C0" font-weight="700">12</tspan></text>
+
+      <text x="728" y="268" fill="#7E93A8">&gt; .ra 侦查</text>
+      <text x="728" y="296" fill="#EEF3F8">侦查 D100 = <tspan fill="#37D6C0" font-weight="700">27</tspan> / 45  <tspan fill="#A9BDCE">成功</tspan></text>
+
+      <text x="728" y="350" fill="#7E93A8">&gt; .sc 0/1d6</text>
+      <text x="728" y="378" fill="#EEF3F8">SAN 60 - <tspan fill="#FF4D5E" font-weight="700">2</tspan> = 58</text>
+    </g>
+
+    <line x1="700" y1="412" x2="1152" y2="412" stroke="#17232E"/>
+    <text x="728" y="440" font-family="ui-monospace, Consolas, monospace" font-size="16" fill="#5E748A">状态写入 data/plugin_data/dice_astrbot/</text>
+  </g>
+</svg>

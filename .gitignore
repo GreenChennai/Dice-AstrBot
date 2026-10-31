@@ -13,3 +13,6 @@ venv/
 /data/plugin_data/
 /imports/
 *.log
+
+# Tests are kept local only
+tests/

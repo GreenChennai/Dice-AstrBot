@@ -227,6 +227,15 @@ class PluginTests(unittest.TestCase):
         event.get_self_id = lambda: self_id
         return event
 
+    @staticmethod
+    def onebot_notice_event(notice, group="999", platform_name="aiocqhttp", platform_id="connector-a", self_id="10001"):
+        event = FakeEvent("", sender="20000", group=group, private=False, admin=False)
+        event.message_obj = types.SimpleNamespace(raw_message=notice)
+        event.get_platform_name = lambda: platform_name
+        event.get_platform_id = lambda: platform_id
+        event.get_self_id = lambda: self_id
+        return event
+
     def test_prefix_order_dedup_and_single_prefix_override(self):
         plugin = Main(object(), {"prefixes": ["!", "!!", ".", "!!"]})
         self.assertEqual(plugin.prefixes, ("!!", "!", "."))
@@ -236,6 +245,14 @@ class PluginTests(unittest.TestCase):
         self.assertIsNone(single._command_from("!version"))
         empty_list_falls_back = Main(object(), {"prefix": "?", "prefixes": []})
         self.assertEqual(empty_list_falls_back.prefixes, ("?",))
+
+    def test_jrrp_reply_uses_plain_luck_sentence(self):
+        reply = self.plugin._jrrp("", "999", "500", False)
+        prefix = "你今日的人品是 "
+        self.assertTrue(reply.startswith(prefix), reply)
+        value = reply[len(prefix):]
+        self.assertTrue(value.isdigit() and 1 <= int(value) <= 100, reply)
+        self.assertEqual(reply, self.plugin._jrrp("", "999", "500", False))
 
     def test_nickname_matches_upstream_global_and_single_entry_fallbacks(self):
         def set_nicknames(nicknames):
@@ -752,7 +769,52 @@ class PluginTests(unittest.TestCase):
                 self.assertEqual(len(replies), 1)
                 self.assertIn(expected, replies[0])
         self.assertEqual(self.plugin._group_snapshot(group_id)["welcome_message"], "")
-        self.assertIn("不会自动发送", self.collect(self.plugin, FakeEvent(".welcome set 当前群", admin=True))[0])
+        self.assertIn("仅 OneBot V11", self.collect(self.plugin, FakeEvent(".welcome set 当前群", admin=True))[0])
+
+    def test_onebot_group_join_sends_configured_welcome_only(self):
+        notice = {"post_type": "notice", "notice_type": "group_increase", "sub_type": "approve", "group_id": "999", "user_id": "12345"}
+        event = self.onebot_notice_event(notice)
+        group_id = Main._group_id(event)
+        self.plugin._mutate_group(group_id, lambda group: group.__setitem__("welcome_message", "欢迎来到冒险团！"))
+        self.assertEqual(self.collect(self.plugin, event), ["欢迎来到冒险团！"])
+        self.assertFalse(event.stopped)
+        invite_event = self.onebot_notice_event({**notice, "sub_type": "invite"})
+        self.assertEqual(self.collect(self.plugin, invite_event), ["欢迎来到冒险团！"])
+
+        empty_notice = {**notice, "group_id": "1000", "sub_type": "invite"}
+        empty_event = self.onebot_notice_event(empty_notice, group="1000")
+        self.assertEqual(self.collect(self.plugin, empty_event), [])
+
+    def test_onebot_group_departure_notice_distinguishes_leave_kick_and_bot_removal(self):
+        cases = (("leave", "群成员 12345 已退出本群。"), ("kick", "群成员 12345 已被移出本群。"))
+        for sub_type, expected in cases:
+            with self.subTest(sub_type=sub_type):
+                event = self.onebot_notice_event({"post_type": "notice", "notice_type": "group_decrease", "sub_type": sub_type, "group_id": "999", "user_id": "12345"})
+                self.assertEqual(self.collect(self.plugin, event), [expected])
+        bot_removed = self.onebot_notice_event({"post_type": "notice", "notice_type": "group_decrease", "sub_type": "kick_me", "group_id": "999", "user_id": "10001"})
+        self.assertEqual(self.collect(self.plugin, bot_removed), [])
+
+    def test_onebot_lifecycle_notice_rejects_other_adapters_malformed_and_mismatched_groups(self):
+        notice = {"post_type": "notice", "notice_type": "group_increase", "sub_type": "approve", "group_id": "999", "user_id": "12345"}
+        event = self.onebot_notice_event(notice)
+        self.plugin._mutate_group(Main._group_id(event), lambda group: group.__setitem__("welcome_message", "欢迎！"))
+        other_adapter = self.onebot_notice_event(notice, platform_name="other")
+        self.assertEqual(self.collect(self.plugin, other_adapter), [])
+        malformed = self.onebot_notice_event({**notice, "user_id": "not-an-id"})
+        self.assertEqual(self.collect(self.plugin, malformed), [])
+        mismatched_group = self.onebot_notice_event(notice, group="1000")
+        self.assertEqual(self.collect(self.plugin, mismatched_group), [])
+
+    def test_onebot_lifecycle_notices_respect_global_and_group_disable_switches(self):
+        notice = {"post_type": "notice", "notice_type": "group_increase", "sub_type": "approve", "group_id": "999", "user_id": "12345"}
+        event = self.onebot_notice_event(notice)
+        group_id = Main._group_id(event)
+        self.plugin._mutate_group(group_id, lambda group: group.__setitem__("welcome_message", "欢迎！"))
+        self.plugin._mutate_group(group_id, lambda group: group.__setitem__("enabled", False))
+        self.assertEqual(self.collect(self.plugin, event), [])
+        self.plugin._mutate_group(group_id, lambda group: group.__setitem__("enabled", True))
+        self.plugin._mutate_system(lambda system: system.__setitem__("enabled", False))
+        self.assertEqual(self.collect(self.plugin, event), [])
 
     def test_welcome_access_and_length_limits_reject_without_overwriting(self):
         original_root = StarTools.data_root

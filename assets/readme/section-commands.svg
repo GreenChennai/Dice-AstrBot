@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 132" width="100%" role="img" aria-labelledby="t">
+  <title id="t">命令一览：02 / COMMANDS</title>
+  <rect width="1200" height="132" fill="#0B1117"/>
+  <rect width="1200" height="132" fill="url(#dots-37D6C0)" opacity="0.5"/>
+  <defs>
+    <pattern id="dots-37D6C0" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="1.6" cy="1.6" r="1.1" fill="#22303D"/>
+    </pattern>
+  </defs>
+  <rect x="64" y="46" width="4" height="44" rx="2" fill="#37D6C0"/>
+  <text x="88" y="64" font-family="ui-monospace, Consolas, monospace" font-size="16" letter-spacing="3" fill="#6E8399">02 / COMMANDS</text>
+  <text x="88" y="96" font-family="Segoe UI, Noto Sans SC, Microsoft YaHei, sans-serif" font-size="34" font-weight="700" fill="#EEF3F8">命令一览</text>
+  <text x="1136" y="96" text-anchor="end" font-family="ui-monospace, Consolas, monospace" font-size="16" letter-spacing="1" fill="#5E748A">TABLES BELOW</text>
+  <line x1="64" y1="118" x2="1136" y2="118" stroke="#1B2733" stroke-width="1.5"/>
+  
+</svg>

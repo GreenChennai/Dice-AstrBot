@@ -16,3 +16,6 @@ venv/
 
 # Tests are kept local only
 tests/
+
+# AstrBot runtime files are not part of the plugin
+data/

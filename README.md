@@ -7,9 +7,12 @@
   <img alt="Python 3.12" src="https://img.shields.io/badge/Python-3.12-37D6C0?style=flat-square">
   <img alt="插件版本 0.2.0" src="https://img.shields.io/badge/version-0.2.0-F5C451?style=flat-square">
   <img alt="仅标准库" src="https://img.shields.io/badge/deps-stdlib%20only-6E8399?style=flat-square">
+  <img alt="License AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-FF4D5E?style=flat-square">
 </p>
 
 **Dice 的原生 AstrBot 实现。** 骰子、COC7 检定、角色卡与团务状态，全部在 AstrBot 的消息事件里直接处理：不启动 Dice 服务，不走 HTTP / QQ 代理，只依赖 AstrBot API 与 Python 标准库。目标运行环境为 AstrBot 4.29.1 / Python 3.12。
+
+移植自 [Dice-Developer-Team/Dice](https://github.com/Dice-Developer-Team/Dice)（Dice! C++ 发行版，AGPL-3.0）：命令面与 COC7 行为对齐上游，宿主与依赖被替换为 AstrBot 原生实现，未移植项在下方逐条列出。
 
 <p align="center">
   <img src="assets/readme/section-quickstart.svg" alt="快速开始" width="100%">
@@ -165,4 +168,6 @@ python -m compileall -q dice_astrbot
 
 ## 许可证
 
-仓库目前未声明开源许可证，如需使用请先联系作者。
+本项目以 **GNU Affero General Public License v3.0（AGPL-3.0）** 发布，与上游 Dice! （[Dice-Developer-Team/Dice](https://github.com/Dice-Developer-Team/Dice)）保持一致，完整条款见 [LICENSE](LICENSE)。
+
+Dice-AstrBot 是 Dice! 的 AstrBot 移植版本，不是上游官方发行物；未移植项与行为差异见上方折叠的《与上游 Dice 的差异（完整清单）》。二次分发与修改需同样以 AGPL-3.0 提供源码。

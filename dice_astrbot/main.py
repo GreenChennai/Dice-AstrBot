@@ -9,6 +9,7 @@ import secrets
 import shlex
 import threading
 import time
+from collections.abc import Mapping
 from typing import Callable
 from dataclasses import dataclass, replace
 from datetime import datetime
@@ -240,6 +241,67 @@ class Main(Star):
         except (TypeError, ValueError):
             return default
         return min(high, max(low, value))
+
+    @staticmethod
+    def _onebot_notice_payload(event: AstrMessageEvent) -> Mapping | None:
+        """Return OneBot V11 notice payloads; AstrBot has no portable member-event hook."""
+        try:
+            platform_name = event.get_platform_name()
+        except Exception:
+            return None
+        if not isinstance(platform_name, str) or platform_name.strip().casefold() != "aiocqhttp":
+            return None
+        message_obj = getattr(event, "message_obj", None)
+        payload = getattr(message_obj, "raw_message", None)
+        if not isinstance(payload, Mapping) or payload.get("post_type") != "notice":
+            return None
+        return payload
+
+    def _onebot_lifecycle_reply(self, event: AstrMessageEvent, notice: Mapping) -> str | None:
+        """Build a bounded group join/leave notice from an aiocqhttp raw event."""
+        notice_type = notice.get("notice_type")
+        if notice_type not in {"group_increase", "group_decrease"} or not self._system_enabled():
+            return None
+        group_value = notice.get("group_id")
+        user_value = notice.get("user_id")
+        if isinstance(group_value, bool) or not isinstance(group_value, (str, int)):
+            return None
+        if isinstance(user_value, bool) or not isinstance(user_value, (str, int)):
+            return None
+        raw_group_id = str(group_value).strip()
+        user_id = str(user_value).strip()
+        if re.fullmatch(r"[0-9]{1,32}", raw_group_id) is None or re.fullmatch(r"[0-9]{1,32}", user_id) is None:
+            return None
+        try:
+            if event.is_private_chat() or str(event.get_group_id()).strip() != raw_group_id:
+                return None
+        except Exception:
+            return None
+        group_id = self._group_id(event)
+        group = self._group_snapshot(group_id)
+        if group.get("enabled", True) is not True:
+            return None
+        sub_type = notice.get("sub_type")
+        if notice_type == "group_increase":
+            if sub_type not in {"approve", "invite"}:
+                return None
+            welcome = group.get("welcome_message", "")
+            if not isinstance(welcome, str) or not welcome or len(welcome) > MAX_WELCOME_MESSAGE_LENGTH:
+                return None
+            return welcome
+        if sub_type == "kick_me":
+            return None
+        try:
+            bot_id = str(event.get_self_id()).strip()
+        except Exception:
+            bot_id = ""
+        if bot_id and bot_id == user_id:
+            return None
+        if sub_type == "leave":
+            return f"群成员 {user_id} 已退出本群。"
+        if sub_type == "kick":
+            return f"群成员 {user_id} 已被移出本群。"
+        return None
 
     @staticmethod
     def _platform_scope(event: AstrMessageEvent) -> str:
@@ -996,6 +1058,12 @@ class Main(Star):
 
     @filter.event_message_type(filter.EventMessageType.ALL)
     async def on_message(self, event: AstrMessageEvent):
+        notice = self._onebot_notice_payload(event)
+        if notice is not None:
+            reply = self._onebot_lifecycle_reply(event, notice)
+            if reply is not None:
+                yield event.plain_result(reply)
+            return
         raw = (event.get_message_str() or "").strip()
         if len(raw) > self.max_message_length:
             return
@@ -3164,7 +3232,7 @@ class Main(Star):
                 if old_day < day_key:
                     state["daily"].pop(old_day, None)
             return int(day[sender_id])
-        return f"今日人品：{self.store.transact(apply)}/100。"
+        return f"你今日的人品是 {self.store.transact(apply)}"
 
     @staticmethod
     def _archive_session(group: dict, session: dict) -> str:
@@ -7141,14 +7209,14 @@ class Main(Star):
 
     def _welcome(self, args: str, group_id: str, is_admin: bool, is_private: bool) -> str:
         if is_private:
-            return "欢迎语配置仅支持当前群；成员入群通知不会自动发送。"
+            return "欢迎语配置仅支持当前群；自动欢迎与离群提示仅支持 OneBot V11（aiocqhttp）。"
         if not group_id:
             return "无法确定当前群，未读取或修改欢迎语。"
         if not is_admin:
             return "仅群管理员可查看或修改本群欢迎语。"
         text = args.strip()
         if not text:
-            return "用法：.welcome show | .welcome set <欢迎语> | .welcome clr；也可直接用 .welcome <欢迎语> 设置。"
+            return "用法：.welcome show | .welcome set <欢迎语> | .welcome clr；也可直接用 .welcome <欢迎语> 设置。自动发送仅支持 OneBot V11（aiocqhttp）。"
         current = self._group_snapshot(group_id).get("welcome_message", "")
         if text.casefold() == "show":
             if not isinstance(current, str):
@@ -7160,7 +7228,7 @@ class Main(Star):
             if not current:
                 return "本群尚未设置欢迎语。"
             self._mutate_group(group_id, lambda group: group.__setitem__("welcome_message", ""))
-            return "本群欢迎语已清除；成员入群通知不会自动发送。"
+            return "本群欢迎语已清除；OneBot V11（aiocqhttp）入群时不再发送。"
         action, separator, remainder = text.partition(" ")
         if action.casefold() == "set":
             welcome = remainder.strip() if separator else ""
@@ -7171,7 +7239,7 @@ class Main(Star):
         if len(welcome) > MAX_WELCOME_MESSAGE_LENGTH:
             return f"欢迎语最多 {MAX_WELCOME_MESSAGE_LENGTH} 个字符。"
         self._mutate_group(group_id, lambda group: group.__setitem__("welcome_message", welcome))
-        return f"本群欢迎语已保存（{len(welcome)}/{MAX_WELCOME_MESSAGE_LENGTH}）；成员入群通知不会自动发送。"
+        return f"本群欢迎语已保存（{len(welcome)}/{MAX_WELCOME_MESSAGE_LENGTH}）；仅 OneBot V11（aiocqhttp）入群时自动发送。"
 
     def _group_command(self, args: str, group_id: str, is_admin: bool, is_private: bool = False, platform_scope: str = "", sender_id: str = "", raw_group_id: str = "", group_info: object | None = None) -> str:
         raw_args = args.strip()
